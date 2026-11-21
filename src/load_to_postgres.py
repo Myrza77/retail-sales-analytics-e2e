@@ -1,9 +1,9 @@
 import os
-from pathlib import Path
 import pandas as pd
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 
+# 1. Connect to PostgreSQL
 load_dotenv()
 
 user = os.getenv("DB_USER")
@@ -15,6 +15,7 @@ db_name = os.getenv("DB_NAME")
 url = f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{db_name}"
 engine = create_engine(url)
 
+# 2. Load and clean raw CSV
 df = pd.read_csv("data/raw/superstore.csv", encoding = "latin1")
 print("Loaded rows:", len(df))
 
@@ -44,6 +45,7 @@ df["ship_date"] = pd.to_datetime(df["ship_date"], format="mixed").dt.date
 
 df = df.drop_duplicates(subset=["row_id"])
 
+# 3. Build Star Schema tables
 dim_customers = df[['customer_id', 'customer_name', 'segment']]
 dim_customers = dim_customers.drop_duplicates(subset=['customer_id'])
 
@@ -72,9 +74,9 @@ dim_date["is_weekend"] = dates.day_of_week >= 5
 merged_df = df.merge(dim_locations, on=loc_cols, how="left")
 fact_orders = merged_df[["row_id", "order_id", "order_date", "ship_date", "ship_mode", "customer_id", "product_id", "location_id", "sales", "quantity", "discount", "profit"]]
 
-sql_file = open("sql/01_schema_star.sql", "r")
-sql_code = sql_file.read()
-sql_file.close()
+# 4. Upload to PostgreSQL and verify
+with open("sql/01_schema_star.sql", "r") as sql_file:
+    sql_code = sql_file.read()
 
 with engine.begin() as conn:
     conn.execute(text(sql_code))
