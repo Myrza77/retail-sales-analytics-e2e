@@ -171,81 +171,63 @@ as mom_growth_pct
 from prev_month
 order by year, month;
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+-- Query 13: Cumulative (Running) Total Sales by Year
+
+with monthly_revenue as (
+select d.year, d.month, 
+round(sum(f.sales), 2) as monthly_sales
+from fact_orders f
+join dim_date d
+on f.order_date = d.date_key
+group by d.year, d.month
+)
+select *, sum(monthly_sales) 
+over (partition by year order by month)
+as ytd_running_sales from monthly_revenue m
+order by year, month;
+
+-- Query 14: Category Share of Regional Sales
+
+with regional_category_sales as (
+select region, category,
+round(sum(f.sales), 2) as total_sales
+from fact_orders f
+join dim_locations l
+on f.location_id = l.location_id
+join dim_products p
+on p.product_id = f.product_id
+group by l.region, p.category
+)
+select region, category, total_sales,
+round(total_sales / nullif(sum(total_sales) 
+over (partition by region), 0) * 100, 2) 
+as pct_of_region_sales
+from regional_category_sales
+order by region, pct_of_region_sales desc;
+
+-- Query 15: 80/20 Pareto Analysis (Top Revenue-Driving Customers)
+
+with customer_sales as (
+select c.customer_id, c.customer_name,
+round(sum(f.sales), 2) as total_sales
+from fact_orders f
+join dim_customers c
+on c.customer_id = f.customer_id
+group by c.customer_id, c.customer_name
+),
+pareto_calc as (
+select customer_name, total_sales, 
+SUM(total_sales) OVER (ORDER BY total_sales DESC 
+ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+as cumulative_sales,
+round(SUM(total_sales) OVER (ORDER BY total_sales DESC 
+ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) / 
+sum(total_sales) over() * 100, 2)
+as cumulative_sales_pct
+from customer_sales
+)
+select customer_name, total_sales,
+cumulative_sales, cumulative_sales_pct
+from pareto_calc
+where cumulative_sales_pct <=80
+order by total_sales desc;
