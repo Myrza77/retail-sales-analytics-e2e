@@ -127,6 +127,123 @@ from product_sales
 where total_sales > (select avg(total_sales) from product_sales)
 order by total_sales desc;
 
+-- Query 11: Top 3 Products by Sales in Each Category
+
+with product_sales as (
+select category, p.product_id, p.product_name,
+round(sum(f.sales), 2) as total_sales
+from dim_products p
+join fact_orders f
+on f.product_id = p.product_id
+group by category, p.product_id, p.product_name
+),
+ranked_products as ( 
+select *,
+dense_rank() over (partition by category order by total_sales desc)
+as sales_rank from product_sales 
+)
+select category, product_id, product_name, sales_rank
+from ranked_products
+where sales_rank <=3
+order by category, sales_rank;
+
+-- Query 12: Month-over-Month (MoM) Sales Growth
+
+with monthly_revenue as (
+select d.year, d.month,
+round(sum(sales), 2) as monthly_sales
+from fact_orders f
+join dim_date d
+on f.order_date = d.date_key
+group by d.year, d.month
+),
+prev_month as (
+select *, 
+lag(monthly_sales) over (order by year, month) 
+as prev_month_sales
+from monthly_revenue
+)
+select year, month, monthly_sales,
+coalesce(prev_month_sales, 0) as prev_month_sales, 
+coalesce(round((monthly_sales - prev_month_sales) / 
+nullif(prev_month_sales, 0) * 100, 2), 0) 
+as mom_growth_pct
+from prev_month
+order by year, month;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
