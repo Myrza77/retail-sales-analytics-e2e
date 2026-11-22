@@ -53,20 +53,79 @@ from fact_orders f
 join dim_locations l
 on f.location_id = l.location_id
 group by l.state
-having count(distinct row_id) >= 100 
-and round(sum(profit), 2) < 0
+having count(*) >= 100 and sum(profit) < 0
 order by total_profit asc;
 
+-- Query 6: Discount Tier Impact
 
+select case 
+when discount = 0 then 'No Discount'
+when discount <= 0.20 then 'Low (1-20%)'
+when discount <= 0.40 then 'Medium (21-40%)'
+else 'High (>40%)'
+end as discount_tier,
+count(*) as line_items,
+round(sum(sales), 2) as total_sales,
+round(sum(profit), 2) as total_profit,
+round(sum(profit) / sum(sales) * 100, 2) 
+as profit_margin_pct
+from fact_orders
+group by discount_tier
+order by profit_margin_pct desc;
 
+-- Query 7: Yearly & Quarterly Performance Trend
 
+select d.year, d.quarter,
+count(distinct order_id) as unique_orders,
+round(sum(sales), 2) as total_sales,
+round(sum(profit), 2) as total_profit,
+round(sum(profit) / sum(sales) * 100, 2) 
+as profit_margin_pct
+from fact_orders f
+join dim_date d
+on f.order_date = d.date_key
+group by d.year, d.quarter
+order by d.year, d.quarter;
 
+-- Query 8: Shipping Speed & Profit
 
+select ship_mode, count(distinct order_id) as unique_orders,
+round(avg(ship_date - order_date), 2) as avg_shipping_days,
+round(sum(sales), 2) as total_sales,
+round(sum(profit), 2) as total_profit
+from fact_orders
+group by ship_mode
+order by avg_shipping_days;
 
+-- Query 9: Weekend vs. Weekday Sales
 
+select d.is_weekend, 
+count(distinct order_id) as unique_orders,
+round(sum(sales), 2) as total_sales,
+round(sum(profit), 2) as total_profit,
+round(sum(sales) / count(distinct order_id), 2) 
+as avg_order_value
+from fact_orders f
+join dim_date d
+on d.date_key = f.order_date
+group by d.is_weekend
+order by total_sales desc;
 
+-- Query 10: Above-Average Products
 
-
+with product_sales as (
+select p.product_id, p.product_name, p.category,
+round(sum(f.sales), 2) as total_sales,
+round(sum(f.profit), 2) as total_profit
+from fact_orders f
+join dim_products p
+on f.product_id = p.product_id
+group by p.product_id, p.product_name, p.category
+)
+select product_name, category, total_sales, total_profit 
+from product_sales
+where total_sales > (select avg(total_sales) from product_sales)
+order by total_sales desc;
 
 
 
