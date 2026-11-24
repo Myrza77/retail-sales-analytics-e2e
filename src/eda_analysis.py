@@ -47,6 +47,9 @@ total_loss = loss_orders["profit"].sum()
 print(f"Unprofitable orders: {pct:.2f}% | Total loss: ${total_loss:,.2f}")
 
 df["profit_margin"] = df["profit"] / df["sales"]
+
+df.to_csv("data/processed/superstore_clean.csv", index=False)
+
 correl = df[["discount", "profit", "profit_margin"]].corr()
 
 print("\nCorrelation Matrix:\n", correl.round(2))
